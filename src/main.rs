@@ -5,7 +5,7 @@ use std::{
     process::Command,
 };
 
-const FFMPEG_PATH: &str = "/usr/bin/ffmpeg";
+const FFMPEG_PATH_LINUX: &str = "/usr/bin/ffmpeg";
 
 fn main() {
     // REGION: Getting directory
@@ -58,6 +58,23 @@ fn main() {
 
     let loudnorm_filter = format!("loudnorm=I={}:TP={}:LRA={}", loudness_i, tp, lra);
 
+    let ffmpeg_path_windows: PathBuf;
+    #[cfg(target_os = "windows")]
+    {
+        let exe_path: PathBuf = env::current_exe().expect("Failed to get current executable path");
+        let exe_dir: &Path = exe_path
+            .parent()
+            .expect("Failed to get executable directory");
+        ffmpeg_path_windows = exe_dir.join("library").join("ffmpeg.exe");
+        if !ffmpeg_path_windows.exists() {
+            eprintln!(
+                "❌ ffmpeg.exe library not found in: {}",
+                ffmpeg_path_windows.display()
+            );
+            return;
+        }
+    }
+
     for input_path in mp3_files {
         let file_name: String = input_path
             .file_stem()
@@ -71,24 +88,58 @@ fn main() {
 
         println!("🔧 Processing: {}", input_path.display());
 
-        let status: std::process::ExitStatus = Command::new(FFMPEG_PATH)
-            .args([
-                "-i",
+        #[cfg(target_os = "windows")]
+        {
+            println!(
+                "{} -i {} -af {} -q:a {} -y {}",
+                ffmpeg_path_windows.to_str().unwrap(),
                 input_path.to_str().unwrap(),
-                "-af",
-                &loudnorm_filter,
-                "-q:a",
-                &quality,
-                "-y",
-                output_path.to_str().unwrap(),
-            ])
-            .status()
-            .expect("Failed to execute ffmpeg");
+                loudnorm_filter,
+                quality,
+                output_path.to_str().unwrap()
+            );
 
-        if status.success() {
-            println!("✅ Finish: {}", output_path.display());
-        } else {
-            println!("❌ Error while processing: {}", input_path.display());
+            let status: std::process::ExitStatus = Command::new(&ffmpeg_path_windows)
+                .args([
+                    "-i",
+                    input_path.to_str().unwrap(),
+                    "-af",
+                    &loudnorm_filter,
+                    "-q:a",
+                    &quality,
+                    "-y",
+                    output_path.to_str().unwrap(),
+                ])
+                .status()
+                .expect("Failed to execute ffmpeg");
+
+            if status.success() {
+                println!("✅ Finish: {}", output_path.display());
+            } else {
+                println!("❌ Error while processing: {}", input_path.display());
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let status: std::process::ExitStatus = Command::new(FFMPEG_PATH_LINUX)
+                .args([
+                    "-i",
+                    input_path.to_str().unwrap(),
+                    "-af",
+                    &loudnorm_filter,
+                    "-q:a",
+                    &quality,
+                    "-y",
+                    output_path.to_str().unwrap(),
+                ])
+                .status()
+                .expect("Failed to execute ffmpeg");
+
+            if status.success() {
+                println!("✅ Finish: {}", output_path.display());
+            } else {
+                println!("❌ Error while processing: {}", input_path.display());
+            }
         }
     }
     // ENDREGION
