@@ -28,7 +28,7 @@
 
 ## 📦 Building
 ```bash
-git clone https://github.com/your-username/song-equalizer.git
+git clone https://github.com/LeandroTheDev/song_equalizer
 cd song-equalizer
 cargo build --release
 ```
